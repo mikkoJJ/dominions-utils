@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "dominions5-server"
+version = "0.1.0"
+description = "Dominions 5 server handling utility"
+authors = ["Mikko Jakonen <mikko.j.jakonen@gmail.com>"]
+readme = "README.md"
+packages = [{include = "dominions5_server"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pyyaml = "^6.0"
+pydantic = "^1.10.4"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.1"
+black = "^22.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
