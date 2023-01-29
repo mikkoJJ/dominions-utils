@@ -2,9 +2,8 @@ from enum import StrEnum, IntEnum
 from typing import Type, Optional
 from typing_extensions import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 import yaml
-
 
 
 class Era(StrEnum):
@@ -20,18 +19,56 @@ class Era(StrEnum):
             return 2
         return 3
 
+
 class StoryEvents(StrEnum):
     all = "all"
     some = "some"
     none = "none"
 
     def to_arg(self) -> str:
-        """ Return the dominions server flag corresponding to this StoryEvents value."""
+        """Return the dominions server flag corresponding to this StoryEvents value."""
         if self.value == "all":
             return "--allstoryevents"
         elif self.value == "some":
             return "--storyevents"
         return "--nostoryevents"
+
+
+class VictoryOptions(BaseModel):
+    l1_thrones: int = 0
+    l2_thrones: int = 0
+    l3_thrones: int = 0
+    ascension_points: Optional[int] = None
+
+    cataclysm: Optional[int] = None
+
+    conquer_all: bool = False
+
+    def to_args(self) -> str:
+        args = (
+            f"--thrones {self.l1_thrones} {self.l2_thrones} {self.l3_thrones} --requiredap {self.ascension_points}"
+            if not self.conquer_all
+            else "--conqall"
+        )
+
+        if self.cataclysm:
+            args += f" --cataclysm {self.cataclysm}"
+
+        return args
+
+    @root_validator
+    def check_which_victory_condition(cls, values):
+        """Validate that either throne or conquer all victory condition is used, not both."""
+        if values.get("conquer_all"):
+            assert (
+                values.get("ascension_points") is None
+            ), "Conquer all and and ascension points cannot both be set"
+        else:
+            assert (
+                values.get("ascension_points") is not None
+            ), "Either Conquer all or ascension points must be set as the victory condition."
+        return values
+
 
 class Game(BaseModel):
     name: str
@@ -40,8 +77,9 @@ class Game(BaseModel):
 
     renaming: bool = True
     hof_size: int = 20
-    cataclysm: Optional[int] = None
+
     story_events: StoryEvents = StoryEvents.some
+    victory: VictoryOptions
 
     port: int = 9191
     cheat_detection: bool = False
@@ -50,7 +88,7 @@ class Game(BaseModel):
     tcp_server: bool = True
 
     def to_server_args(self) -> str:
-        """ Create dominions server script arguments based on the configuration stored
+        """Create dominions server script arguments based on the configuration stored
         in this class.
         """
         args = ""
@@ -60,9 +98,6 @@ class Game(BaseModel):
 
         args += f"--hofsize {self.hof_size}"
         args += self.story_events.to_arg()
-
-        if self.cataclysm:
-            args += f"--cataclysm {self.cataclysm}"
 
         if self.text_only:
             args += "--textonly"
@@ -77,6 +112,7 @@ class Game(BaseModel):
 
     @classmethod
     def from_yaml_file(cls: Type[Self], path: str) -> Self:
+        """Read settigns from a yaml file in the given path."""
 
         with open(path, "r") as stream:
             parsed = yaml.safe_load(stream)
